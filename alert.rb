@@ -3,13 +3,14 @@ require 'net/http'
 require 'json'
 
 def send_email(recipient,opts={})
-  opts[:server]      ||= 'localhost'
-  opts[:from]        ||= 'email@example.com'
-  opts[:from_alias]  ||= 'DuncanBot'
-  opts[:subject]     ||= ''
-  opts[:body]        ||= ''
+	opts[:server]      ||= 'smtp.gmail.com'
+	opts[:port]        ||= 587
+	opts[:from]        ||= 'duncbot1@gmail.com'
+	opts[:from_alias]  ||= 'DuncanBot'
+	opts[:subject]     ||= ''
+	opts[:body]        ||= ''
 
-  msg = <<MESSAGE
+	message = <<MESSAGE
 From: #{opts[:from_alias]} <#{opts[:from]}>
 To: <#{recipient}>
 Subject: #{opts[:subject]}
@@ -17,17 +18,19 @@ Subject: #{opts[:subject]}
 #{opts[:body]}
 MESSAGE
 
-  Net::SMTP.start(opts[:server]) do |smtp|
-    smtp.send_message(msg, opts[:from], recipient)
-  end
+    smtp = Net::SMTP.new opts[:server], opts[:port]
+    smtp.enable_starttls
+    # looks like first arg, domain, does not have to be gmail
+    smtp.start('mail.gmail.com', 'duncbot1', 'duncanB0T', :login) do
+      smtp.send_message(message, 'mail.gmail.com', recipient)
+    end
 end
 
 # coordinates of Rodanthe, NC
 url = 'https://api.forecast.io/forecast/e82a394c7831c1d66bcf9c0ff8812cae/35.5935,-75.4679'
 uri = URI(url)
 
-# recipients = ['6087128892@txt.att.net', '6087128842@txt.att.net', '6087129698@txt.att.net']
-recipients = ['6087128892@txt.att.net']
+recipients = ['6087128892@txt.att.net', '6087128842@txt.att.net', '6087129698@txt.att.net']
 
 WIND_DIRECTION_TABLE = {
 	0 => 'N',
@@ -60,7 +63,7 @@ loop do
 		bearing = parsed_response['currently']['windBearing'].to_s + ' degrees'
 		wind_info = speed + ' ' + direction + ' (' + bearing + ') Rodanthe, NC'
 
-		if (parsed_response['currently']['windSpeed'] > 0)
+		if (parsed_response['currently']['windSpeed'] > 10)
 
 			recipients.each do |recipient|
 				send_email(recipient, {subject: 'Wind Notification', body: wind_info})
@@ -68,9 +71,9 @@ loop do
 
 			puts "#{current_time.to_s[11..15]} - Notifications sent [#{wind_info}]"
 			sleep(3300)
+		else
+			puts "#{current_time.to_s[11..15]} - Wind is below notification threshold [#{wind_info}]. Will check again in 5 minutes..."
 		end
-
-		puts "#{current_time.to_s[11..15]} - Wind is below notification threshold [#{wind_info}]. Will check again in 5 minutes..."
 	else 
 		puts "After hours..."
 	end
